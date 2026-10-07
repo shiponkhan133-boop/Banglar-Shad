@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="bn">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>বাংলার স্বাদ | Interactive District Food Map</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700;800&display=swap');
+*{box-sizing:border-box}body{margin:0;background:#f5f8f5;color:#173b25;font-family:'Noto Sans Bengali',Arial,sans-serif}
+header{background:linear-gradient(135deg,#075b32,#13a15a);color:white;padding:25px 18px}
+.wrap{max-width:1200px;margin:auto}.brand{font-size:30px;font-weight:800;margin:0}.sub{margin:4px 0 0;opacity:.92}
+.tools{display:flex;gap:10px;margin:18px 0;flex-wrap:wrap}input{flex:1;min-width:220px;padding:13px;border:1px solid #d8e3db;border-radius:12px;font-size:15px}button{border:0;border-radius:12px;padding:12px 17px;background:#08733e;color:#fff;font-weight:700}
+.grid{display:grid;grid-template-columns:1.45fr .85fr;gap:18px}.card{background:#fff;border-radius:18px;box-shadow:0 6px 25px #14351d14;overflow:hidden}#map{height:680px}.panel{padding:23px;min-height:680px}.badge{display:inline-block;background:#e5f5eb;color:#08733e;border-radius:99px;padding:5px 11px;font-size:12px;font-weight:800}.title{font-size:27px;margin:9px 0}.muted{color:#637168;line-height:1.7}.food{background:#f1f8f3;border:1px solid #dcebe0;border-radius:14px;padding:14px;margin:12px 0}.food h3{margin:0 0 5px;font-size:19px}.food p{margin:0;color:#5b6b61;line-height:1.6}
+.hint{padding:10px 15px;color:#64736a;font-size:13px;border-top:1px solid #eee}.leaflet-tooltip{font-family:'Noto Sans Bengali';font-weight:700}
+.district{transition:.2s}.district:hover{cursor:pointer}footer{text-align:center;padding:25px;color:#738078;font-size:13px}
+@media(max-width:850px){.grid{grid-template-columns:1fr}#map{height:540px}.panel{min-height:auto}.brand{font-size:24px}}
+</style>
+</head>
+<body>
+<header><div class="wrap"><h1 class="brand">🍲 বাংলার স্বাদ</h1><div class="sub">বাংলাদেশের জেলার ঐতিহ্যবাহী খাবার — মানচিত্রে ক্লিক করে জানুন</div></div></header>
+<main class="wrap">
+<div class="tools"><input id="search" placeholder="জেলা খুঁজুন — যেমন ঢাকা, Bogura, চট্টগ্রাম"><button id="all">সব জেলা</button></div>
+<div class="grid">
+<section class="card"><div id="map"></div><div class="hint">💡 জেলার পুরো এলাকার ওপর ক্লিক করুন — নির্বাচিত জেলা highlight হবে এবং ডান পাশে খাবারের তথ্য দেখাবে।</div></section>
+<aside class="card panel" id="panel"><span class="badge">বাংলাদেশ 🇧🇩</span><h2 class="title">একটি জেলা নির্বাচন করুন</h2><p class="muted">মানচিত্রে কোনো জেলার ওপর ক্লিক করুন। পরের version-এ প্রতিটি খাবারের ছবি, দোকান, ঠিকানা ও Google Maps link যোগ করা যাবে।</p>
+<div class="food"><h3>🌾 লক্ষ্য</h3><p>বাংলাদেশের ৬৪ জেলার স্থানীয় খাবারকে একটি interactive digital food map-এ তুলে ধরা।</p></div></aside>
+</div></main>
+<footer>Banglar Shad • Interactive Bangladesh Food Map • Prototype</footer>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const FOOD={
+"Dhaka":["কাচ্চি বিরিয়ানি","বাকরখানি","পুরান ঢাকা ও ঢাকা শহরের ঐতিহ্যবাহী খাবার"],
+"Faridpur":["খেজুরের গুড়","পিঠা","স্থানীয় বাজার ও মিষ্টির দোকান"],
+"Gazipur":["কাঁঠাল","খেজুরের গুড়","গাজীপুরের স্থানীয় হাট-বাজার"],
+"Gopalganj":["স্থানীয় মিষ্টি","খেজুরের গুড়","গোপালগঞ্জ শহর ও বাজার"],
+"Jamalpur":["পিঠা","ছানার পায়েস","জামালপুরের স্থানীয় বাজার"],
+"Kishoreganj":["বালিশ মিষ্টি","পিঠা","কিশোরগঞ্জ শহরের মিষ্টির দোকান"],
+"Madaripur":["রসগোল্লা","খেজুরের গুড়","মাদারীপুরের স্থানীয় বাজার"],
+"Manikganj":["ঘিওরের মিষ্টি","খেজুরের গুড়","মানিকগঞ্জের স্থানীয় বাজার"],
+"Munshiganj":["পাতক্ষীর","বিক্রমপুরের মিষ্টি","বিক্রমপুর ও মুন্সিগঞ্জ"],
+"Mymensingh":["মুক্তাগাছার মণ্ডা","পিঠা","মুক্তাগাছা ও ময়মনসিংহ শহর"],
+"Narayanganj":["মিষ্টি","রসমালাই","নারায়ণগঞ্জ শহর"],
+"Narsingdi":["সাগর কলা","পিঠা","নরসিংদীর স্থানীয় বাজার"],
+"Netrokona":["বালিশ মিষ্টি","পিঠা","নেত্রকোনা শহর"],
+"Rajbari":["স্থানীয় মিষ্টি","খেজুরের গুড়","রাজবাড়ীর বাজার"],
+"Shariatpur":["পিঠা","খেজুরের গুড়","শরীয়তপুরের স্থানীয় বাজার"],
+"Tangail":["পোড়াবাড়ির চমচম","পিঠা","পোড়াবাড়ি ও টাঙ্গাইল শহর"],
+"Bogura":["বগুড়ার দই","মিষ্টি","বগুড়া শহর ও শেরপুর এলাকার দোকান"],
+"Joypurhat":["পিঠা","স্থানীয় মিষ্টি","জয়পুরহাটের বাজার"],
+"Naogaon":["চাল ও চালের পিঠা","আম","নওগাঁর স্থানীয় বাজার"],
+"Natore":["কাঁচাগোল্লা","পিঠা","নাটোর শহরের মিষ্টির দোকান"],
+"Chapai Nawabganj":["আম","স্থানীয় মিষ্টি","শিবগঞ্জ ও চাঁপাইনবাবগঞ্জের আমের অঞ্চল"],
+"Pabna":["ঘি","মিষ্টি","পাবনা ও বেড়া এলাকার বাজার"],
+"Rajshahi":["আম","মিষ্টি","রাজশাহী শহর ও আশপাশ"],
+"Sirajganj":["পনির","দই ও মিষ্টি","শাহজাদপুর ও সিরাজগঞ্জ শহর"],
+"Dinajpur":["লিচু","পিঠা","দিনাজপুর শহর ও আশপাশ"],
+"Gaibandha":["পিঠা","খেজুরের গুড়","গাইবান্ধার স্থানীয় বাজার"],
+"Kurigram":["পিঠা","চিড়া-মুড়ি","কুড়িগ্রামের স্থানীয় বাজার"],
+"Lalmonirhat":["পিঠা","খেজুরের গুড়","লালমনিরহাটের বাজার"],
+"Nilphamari":["পিঠা","চিড়া-মুড়ি","নীলফামারীর স্থানীয় বাজার"],
+"Panchagarh":["চা","কমলা","তেঁতুলিয়া ও পঞ্চগড়"],
+"Rangpur":["হাঁড়িভাঙা আম","পিঠা","রংপুরের স্থানীয় বাজার"],
+"Thakurgaon":["পিঠা","আখের গুড়","ঠাকুরগাঁওয়ের স্থানীয় বাজার"],
+"Bhola":["ইলিশ","নারিকেল ও পিঠা","ভোলা ও উপকূলীয় বাজার"],
+"Barisal":["আমড়া","ইলিশ","বরিশাল শহর ও স্থানীয় বাজার"],
+"Jhalokati":["আমড়া","পিঠা","ঝালকাঠির স্থানীয় বাজার"],
+"Barguna":["ইলিশ","শুঁটকি","বরগুনার উপকূলীয় বাজার"],
+"Patuakhali":["ইলিশ","শুঁটকি","পটুয়াখালী ও কুয়াকাটা"],
+"Pirojpur":["নারিকেল","পিঠা","পিরোজপুরের স্থানীয় বাজার"],
+"Bandarban":["বাঁশকোঁড়ল","পাহাড়ি ঐতিহ্যবাহী খাবার","বান্দরবান পাহাড়ি বাজার"],
+"Brahmanbaria":["ছানামুখী মিষ্টি","রসমালাই","ব্রাহ্মণবাড়িয়া শহরের মিষ্টির দোকান"],
+"Chandpur":["ইলিশ","ইলিশের বিভিন্ন পদ","চাঁদপুর বড় স্টেশন ও শহর"],
+"Chittagong":["মেজবান","কালাভুনা","চট্টগ্রাম শহরের মেজবান ও স্থানীয় রেস্তোরাঁ"],
+"Comilla":["রসমালাই","মিষ্টি","কুমিল্লা শহরের ঐতিহ্যবাহী মিষ্টির দোকান"],
+"Cox's Bazar":["শুঁটকি","সামুদ্রিক মাছ","কক্সবাজার শহর ও সৈকত এলাকা"],
+"Feni":["মিষ্টি","স্থানীয় পিঠা","ফেনী শহরের বাজার"],
+"Khagrachhari":["বাঁশকোঁড়ল","পাহাড়ি খাবার","খাগড়াছড়ির পাহাড়ি বাজার"],
+"Lakshmipur":["সুপারি","নারিকেল","লক্ষ্মীপুরের স্থানীয় বাজার"],
+"Noakhali":["নারিকেলভিত্তিক পিঠা","স্থানীয় মিষ্টি","নোয়াখালীর বাজার"],
+"Rangamati":["বাঁশকোঁড়ল","পাহাড়ি খাবার","রাঙামাটির পাহাড়ি বাজার"],
+"Jessore":["খেজুরের গুড়","সাগর কলা","যশোরের স্থানীয় বাজার"],
+"Jhenaidah":["খেজুরের গুড়","পিঠা","ঝিনাইদহের স্থানীয় বাজার"],
+"Khulna":["চুইঝাল","চিংড়ি","খুলনা শহর ও দক্ষিণ-পশ্চিমাঞ্চল"],
+"Kushtia":["তিলের খাজা","মিষ্টি","কুষ্টিয়া শহরের ঐতিহ্যবাহী দোকান"],
+"Magura":["খেজুরের গুড়","পিঠা","মাগুরার স্থানীয় বাজার"],
+"Meherpur":["মিষ্টি","খেজুরের গুড়","মেহেরপুরের স্থানীয় বাজার"],
+"Narail":["খেজুরের গুড়","পিঠা","নড়াইলের স্থানীয় বাজার"],
+"Satkhira":["সন্দেশ","চিংড়ি","সাতক্ষীরার স্থানীয় বাজার"]
+};
+const bn={
+"Dhaka":"ঢাকা","Faridpur":"ফরিদপুর","Gazipur":"গাজীপুর","Gopalganj":"গোপালগঞ্জ","Jamalpur":"জামালপুর","Kishoreganj":"কিশোরগঞ্জ","Madaripur":"মাদারীপুর","Manikganj":"মানিকগঞ্জ","Munshiganj":"মুন্সিগঞ্জ","Mymensingh":"ময়মনসিংহ","Narayanganj":"নারায়ণগঞ্জ","Narsingdi":"নরসিংদী","Netrokona":"নেত্রকোনা","Rajbari":"রাজবাড়ী","Shariatpur":"শরীয়তপুর","Tangail":"টাঙ্গাইল","Bogura":"বগুড়া","Joypurhat":"জয়পুরহাট","Naogaon":"নওগাঁ","Natore":"নাটোর","Chapai Nawabganj":"চাঁপাইনবাবগঞ্জ","Pabna":"পাবনা","Rajshahi":"রাজশাহী","Sirajganj":"সিরাজগঞ্জ","Dinajpur":"দিনাজপুর","Gaibandha":"গাইবান্ধা","Kurigram":"কুড়িগ্রাম","Lalmonirhat":"লালমনিরহাট","Nilphamari":"নীলফামারী","Panchagarh":"পঞ্চগড়","Rangpur":"রংপুর","Thakurgaon":"ঠাকুরগাঁও","Bhola":"ভোলা","Barisal":"বরিশাল","Jhalokati":"ঝালকাঠি","Barguna":"বরগুনা","Patuakhali":"পটুয়াখালী","Pirojpur":"পিরোজপুর","Bandarban":"বান্দরবান","Brahmanbaria":"ব্রাহ্মণবাড়িয়া","Chandpur":"চাঁদপুর","Chittagong":"চট্টগ্রাম","Comilla":"কুমিল্লা","Cox's Bazar":"কক্সবাজার","Feni":"ফেনী","Khagrachhari":"খাগড়াছড়ি","Lakshmipur":"লক্ষ্মীপুর","Noakhali":"নোয়াখালী","Rangamati":"রাঙামাটি","Jessore":"যশোর","Jhenaidah":"ঝিনাইদহ","Khulna":"খুলনা","Kushtia":"কুষ্টিয়া","Magura":"মাগুরা","Meherpur":"মেহেরপুর","Narail":"নড়াইল","Satkhira":"সাতক্ষীরা"
+};
+const map=L.map('map',{scrollWheelZoom:true,zoomControl:true}).setView([23.75,90.4],7);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap contributors'}).addTo(map);
+let layer, selected=null, features=[];
+function keyFor(name){return name.replace('Chittagong Division','').trim()}
+function districtName(props){
+  return props.ADM2_EN||props.DISTRICT||props.district||props.name||props.NAME_2||props.DIST_NAME||'Unknown';
+}
+function selectFeature(feature,l){
+  if(selected) layer.resetStyle(selected);
+  selected=l;
+  l.setStyle({weight:3,color:'#075b32',fillColor:'#19a463',fillOpacity:.8});
+  const en=districtName(feature.properties), name=bn[en]||en, foods=FOOD[en]||['স্থানীয় ঐতিহ্যবাহী খাবার','তথ্য সংগ্রহাধীন','এই জেলার খাবারের তথ্য আরও যোগ করা হবে'];
+  document.getElementById('panel').innerHTML=`<span class="badge">জেলা • Bangladesh</span><h2 class="title">🍽️ ${name}</h2><p class="muted">${en} জেলার পরিচিত খাবারের উদাহরণ:</p>
+  <div class="food"><h3>🥘 ${foods[0]}</h3><p>ঐতিহ্য ও স্থানীয় স্বাদের জন্য পরিচিত।</p></div>
+  <div class="food"><h3>🍴 ${foods[1]}</h3><p>এই অঞ্চলের স্থানীয় খাবারের তালিকায় উল্লেখযোগ্য।</p></div>
+  <div class="food"><h3>📍 কোথায় পাওয়া যায়</h3><p>${foods[2]}</p></div>
+  <div class="food"><h3>🚀 পরবর্তী উন্নয়ন</h3><p>খাবারের ছবি, দোকানের নাম, ঠিকানা, ফোন এবং Google Maps link যোগ করা যাবে।</p></div>`;
+  map.fitBounds(l.getBounds(),{padding:[25,25],maxZoom:9});
+}
+function style(){return {weight:1.2,color:'#fff',fillColor:'#6fbe8d',fillOpacity:.58}}
+fetch('https://www.bamis.gov.bd/res/public/map/bangladesh_district_bounds.json')
+.then(r=>r.json()).then(data=>{
+  features=data.features||[];
+  layer=L.geoJSON(data,{style,onEachFeature:(f,l)=>{
+    const en=districtName(f.properties), label=bn[en]||en;
+    l.bindTooltip(label,{sticky:true,direction:'center',className:'leaflet-tooltip'});
+    l.on({click:()=>selectFeature(f,l),mouseover:e=>{if(e.target!==selected)e.target.setStyle({weight:2,color:'#075b32',fillOpacity:.75})},mouseout:e=>{if(e.target!==selected)layer.resetStyle(e.target)}});
+  }}).addTo(map);
+  map.fitBounds(layer.getBounds());
+}).catch(()=>document.getElementById('panel').innerHTML='<h2>Map data load হয়নি</h2><p class="muted">ইন্টারনেট সংযোগ পরীক্ষা করে আবার খুলুন।</p>');
+document.getElementById('search').addEventListener('input',e=>{
+  const q=e.target.value.trim().toLowerCase();
+  if(!layer)return;
+  layer.eachLayer(l=>{
+    const en=districtName(l.feature.properties), b=bn[en]||'';
+    const ok=!q||en.toLowerCase().includes(q)||b.toLowerCase().includes(q);
+    l.setStyle({fillOpacity:ok?.58:.08,opacity:ok?1:.25});
+  });
+  const hit=features.find(f=>{const en=districtName(f.properties),b=bn[en]||'';return en.toLowerCase().includes(q)||b.toLowerCase().includes(q)});
+  if(q&&hit){const l=Object.values(layer._layers).find(x=>x.feature===hit);if(l)selectFeature(hit,l)}
+});
+document.getElementById('all').onclick=()=>{document.getElementById('search').value='';if(layer){layer.eachLayer(l=>layer.resetStyle(l));map.fitBounds(layer.getBounds())}};
+</script>
+</body></html>
